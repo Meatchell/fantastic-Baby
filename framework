@@ -1,0 +1,745 @@
+/**
+ * Created by Administrator on 2016/12/18.
+ *
+ * 136行 莫名bug
+ */
+(function (window, undefined) {
+
+    //功能函数  将字符串解析HTML标签(DOM元素);
+    var parseHTML = (function () {
+        function parseHTML(html) {
+            var div = document.createElement('div');
+            div.innerHTML = html;
+            var res = [];
+            for (var i = 0; i < div.childNodes.length; i++) {
+                res.push(div.childNodes[i]);
+
+            }
+            return res;
+        }
+
+        return parseHTML;
+    })()
+
+    //IE 8 apply 支持传入伪数组, 如果出错 重写 apply
+    var arr = [],
+        push = arr.push,
+        slice = arr.slice;
+    try {
+        var div = document.createElement('div');
+        div.innerHTML = '<p></p>';
+        var arr = [];
+        push.apply(arr, div.getElementsByTagName('p'))
+    } catch (e) {
+        push = {
+            apply: function (arr1, arr2) {
+                for (var i = 0; i < arr2.length; i++) {
+                    arr1[arr1.length] = arr2;
+                }
+            }
+        }
+    }
+
+    //核心模块
+    function Meatchell(html) {
+        return new Meatchell.prototype.init(html);
+    }
+
+    Meatchell.fn = Meatchell.prototype = {
+        constructor: Meatchell,
+        length: 0,
+        type: 'Meatchell',
+        selector: '',
+        init: function (html) {
+            if (html == null || html == '')return;
+            if (Meatchell.isFunction(html)) {
+                var oldFn = onload;
+                if( Meatchell.isFunction(oldFn)){
+                    onload = function(){
+                        oldFn();
+                        html();F
+                    }
+                }else{
+                    onload = html;
+                }
+            } else if (Meatchell.isString(html)) {
+                if (/^</.test(html)) {
+                    push.apply(this, parseHTML(html));
+                } else {
+                    push.apply(this, Meatchell.select(html));
+                    this.selector = html;
+                }
+
+            }
+            if (html.nodeType) {
+               // this 是空的 Meatchell对象???为什么会没有属性  this 指向不清楚
+                push.call(this, html); //似乎只有apply方法 length属性 才会有变化
+            }
+            if (html.type === "Meatchell") { //传入的是Meatchell 对象;
+                push.call(this, html);          //此时的 html 是 Meatchell对象(伪数组)
+                this.selector = html.selector;
+            }
+            this.events = {};
+        },
+        toArray: function () {
+            return slice.call(this, 0);
+        },
+        get: function (index) {
+            if (index === undefined) {
+                return this.toArray();
+            } else {
+                return this[index];
+            }
+        },
+        eq: function (index) { //需要返回 Meatchell 对象
+            var dom;
+            if (index >= 0) {
+                dom = this.get(index);
+            } else {
+
+                dom = this.get(this.length + index);
+            }
+            return this.constructor(dom);
+        },
+        each: function (func) {
+            return Meatchell.each(this, func);
+        },
+        map: function (func) {
+            return Meatchell.map(this, func);
+        }
+
+
+    }
+    Meatchell.fn.init.prototype = Meatchell.fn;  //统一原型对象
+
+    // 添加可扩展的方法 extend
+    Meatchell.fn.extend = Meatchell.extend = function (obj) {
+        for (var k in obj) {
+            this[k] = obj[k];
+        }
+    }
+    //为构造函数添加静态方法 map 和 each;
+    Meatchell.extend({
+        each: function (obj, func) {
+            if (Meatchell.arrayLike(obj)) {  //鸭子辨形
+                for (var i = 0; i < obj.length; i++) {
+                    func.call(obj[i], i, obj[i]);
+                }
+            } else {
+                for (var k in obj) {
+                    func.call(obj[k], k, obj[k]);
+                }
+            }
+            return obj;
+        },
+        map: function (obj, func) {
+            var temp, res = [];
+            if (Meatchell.arrayLike(obj)) {
+                for (var i = 0; i < obj.length; i++) {
+                    temp = func(obj[i], i);
+                    if (temp != null) {
+                        res.push(temp);
+                    }
+                }
+            } else {
+                for (var k in obj) {
+                    temp = func(obj[k], k);
+                    if (temp != null) {
+                        res.push(temp);
+                    }
+                }
+            }
+            return res;
+        }
+    })
+
+    // 缓动函数
+    var Easing = {
+        line: function ( x, t, b, c, d ) {
+            var speed = ( c - b ) / d;
+            return speed * t;
+        },
+        change: function ( x, t, b, c, d ) {
+            return Math.log( t + 1 ) / Math.log( d + 1 ) * ( c - b );
+        },
+        easeInQuad: function (x, t, b, c, d) {
+            return c*(t/=d)*t + b;
+        },
+        easeOutQuad: function (x, t, b, c, d) {
+            return -c *(t/=d)*(t-2) + b;
+        },
+        easeInOutQuad: function (x, t, b, c, d) {
+            if ((t/=d/2) < 1) return c/2*t*t + b;
+            return -c/2 * ((--t)*(t-2) - 1) + b;
+        },
+        easeInCubic: function (x, t, b, c, d) {
+            return c*(t/=d)*t*t + b;
+        },
+        easeOutCubic: function (x, t, b, c, d) {
+            return c*((t=t/d-1)*t*t + 1) + b;
+        },
+        easeInOutCubic: function (x, t, b, c, d) {
+            if ((t/=d/2) < 1) return c/2*t*t*t + b;
+            return c/2*((t-=2)*t*t + 2) + b;
+        },
+        easeInQuart: function (x, t, b, c, d) {
+            return c*(t/=d)*t*t*t + b;
+        },
+        easeOutQuart: function (x, t, b, c, d) {
+            return -c * ((t=t/d-1)*t*t*t - 1) + b;
+        },
+        easeInOutQuart: function (x, t, b, c, d) {
+            if ((t/=d/2) < 1) return c/2*t*t*t*t + b;
+            return -c/2 * ((t-=2)*t*t*t - 2) + b;
+        },
+        easeInQuint: function (x, t, b, c, d) {
+            return c*(t/=d)*t*t*t*t + b;
+        },
+        easeOutQuint: function (x, t, b, c, d) {
+            return c*((t=t/d-1)*t*t*t*t + 1) + b;
+        },
+        easeInOutQuint: function (x, t, b, c, d) {
+            if ((t/=d/2) < 1) return c/2*t*t*t*t*t + b;
+            return c/2*((t-=2)*t*t*t*t + 2) + b;
+        },
+        easeInSine: function (x, t, b, c, d) {
+            return -c * Math.cos(t/d * (Math.PI/2)) + c + b;
+        },
+        easeOutSine: function (x, t, b, c, d) {
+            return c * Math.sin(t/d * (Math.PI/2)) + b;
+        },
+        easeInOutSine: function (x, t, b, c, d) {
+            return -c/2 * (Math.cos(Math.PI*t/d) - 1) + b;
+        },
+        easeInExpo: function (x, t, b, c, d) {
+            return (t==0) ? b : c * Math.pow(2, 10 * (t/d - 1)) + b;
+        },
+        easeOutExpo: function (x, t, b, c, d) {
+            return (t==d) ? b+c : c * (-Math.pow(2, -10 * t/d) + 1) + b;
+        },
+        easeInOutExpo: function (x, t, b, c, d) {
+            if (t==0) return b;
+            if (t==d) return b+c;
+            if ((t/=d/2) < 1) return c/2 * Math.pow(2, 10 * (t - 1)) + b;
+            return c/2 * (-Math.pow(2, -10 * --t) + 2) + b;
+        },
+        easeInCirc: function (x, t, b, c, d) {
+            return -c * (Math.sqrt(1 - (t/=d)*t) - 1) + b;
+        },
+        easeOutCirc: function (x, t, b, c, d) {
+            return c * Math.sqrt(1 - (t=t/d-1)*t) + b;
+        },
+        easeInOutCirc: function (x, t, b, c, d) {
+            if ((t/=d/2) < 1) return -c/2 * (Math.sqrt(1 - t*t) - 1) + b;
+            return c/2 * (Math.sqrt(1 - (t-=2)*t) + 1) + b;
+        },
+        easeInElastic: function (x, t, b, c, d) {
+            var s=1.70158;var p=0;var a=c;
+            if (t==0) return b;  if ((t/=d)==1) return b+c;  if (!p) p=d*.3;
+            if (a < Math.abs(c)) { a=c; var s=p/4; }
+            else var s = p/(2*Math.PI) * Math.asin (c/a);
+            return -(a*Math.pow(2,10*(t-=1)) * Math.sin( (t*d-s)*(2*Math.PI)/p )) + b;
+        },
+        easeOutElastic: function (x, t, b, c, d) {
+            var s=1.70158;var p=0;var a=c;
+            if (t==0) return b;  if ((t/=d)==1) return b+c;  if (!p) p=d*.3;
+            if (a < Math.abs(c)) { a=c; var s=p/4; }
+            else var s = p/(2*Math.PI) * Math.asin (c/a);
+            return a*Math.pow(2,-10*t) * Math.sin( (t*d-s)*(2*Math.PI)/p ) + c + b;
+        },
+        easeInOutElastic: function (x, t, b, c, d) {
+            var s=1.70158;var p=0;var a=c;
+            if (t==0) return b;  if ((t/=d/2)==2) return b+c;  if (!p) p=d*(.3*1.5);
+            if (a < Math.abs(c)) { a=c; var s=p/4; }
+            else var s = p/(2*Math.PI) * Math.asin (c/a);
+            if (t < 1) return -.5*(a*Math.pow(2,10*(t-=1)) * Math.sin( (t*d-s)*(2*Math.PI)/p )) + b;
+            return a*Math.pow(2,-10*(t-=1)) * Math.sin( (t*d-s)*(2*Math.PI)/p )*.5 + c + b;
+        },
+        easeInBack: function (x, t, b, c, d, s) {
+            if (s == undefined) s = 1.70158;
+            return c*(t/=d)*t*((s+1)*t - s) + b;
+        },
+        easeOutBack: function (x, t, b, c, d, s) {
+            if (s == undefined) s = 1.70158;
+            return c*((t=t/d-1)*t*((s+1)*t + s) + 1) + b;
+        },
+        easeInOutBack: function (x, t, b, c, d, s) {
+            if (s == undefined) s = 1.70158;
+            if ((t/=d/2) < 1) return c/2*(t*t*(((s*=(1.525))+1)*t - s)) + b;
+            return c/2*((t-=2)*t*(((s*=(1.525))+1)*t + s) + 2) + b;
+        },
+        easeOutBounce: function (x, t, b, c, d) {
+
+            if ((t/=d) < (1/2.75)) {
+                return c*(7.5625*t*t) + b;
+            } else if (t < (2/2.75)) {
+                return c*(7.5625*(t-=(1.5/2.75))*t + .75) + b;
+            } else if (t < (2.5/2.75)) {
+                return c*(7.5625*(t-=(2.25/2.75))*t + .9375) + b;
+            } else {
+                return c*(7.5625*(t-=(2.625/2.75))*t + .984375) + b;
+            }
+
+        }
+
+    };
+    //判断
+    Meatchell.extend({
+        isString: function (data) {return typeof data === 'string';},
+        isFunction: function (data) {return  typeof data === 'function';},
+        isObject:function(data){return typeof data === 'object'},
+        getStyle:function(obj,name){
+            if(obj.currentStyle){
+                return obj.currentStyle(name);
+            }else{
+                return getComputedStyle(obj)[name];
+            }
+        },
+        arrayLike: function (data) {  //鸭子辨形
+            return data instanceof Array || data.length >= 0;
+        },
+        isArray: function (data) {
+
+        },
+         //t, b, c, d, // t: current time, b: beginning value, c: change in value, d: duration
+        g:function(t,b,c,d,type){
+            //先快后慢的缓动（变速运动）
+            var s,x;
+            if(type === undefined){
+                var speed = (c-b) / d;
+                return t * speed;
+            }else{
+                for(var k in Easing){
+                    if(type === k){
+                      var res =  Easing[k]()
+                        console.log(res)
+                        console.log(Easing[k])
+                        return res;
+                    }
+                }
+
+            }
+        }
+})
+
+    //dom 方法操
+    Meatchell.fn.extend({
+        appendTo: function (selector) {  //链需要变化
+            var iObj = this.constructor(selector);
+            var newObj = this.constructor();
+            for (var i = 0; i < this.length; i++) {
+                for (var j = 0; j < iObj.length; j++) {
+                    var temp = j == iObj.length - 1 ? this[i] : this[i].cloneNode(true);
+                    push.call(newObj, temp);
+                    iObj[j].appendChild(temp);
+                }
+            }
+            return newObj;
+        },
+        append:function(selector){  //链不需要变化
+            M(selector).appendTo(this);
+            return this;
+        },
+        prependTo:function(selector){
+            var iObj = this.constructor(selector);
+            var newObj = this.constructor();
+            for(var i = 0; i<this.length; i++){
+                for(var j =0; j<iObj.length;j++){
+                    var temp = (j == obj.length-1?this[i]:this[i].cloneNode(true));
+
+                    var firstChild = iObj[j].firstChild;
+                    if(firstChild){
+                        iObj[j].insertBefore(temp,firstChild)
+                        push.call(newObj,temp);
+                    }else{  //父节点没有子元素;
+                        iObj[j].appendChild(temp);
+                        push.call(newObj,temp);
+                    }
+                }
+            }
+            return newObj;
+        },
+        prepend:function(selector){
+            M(selector).prependTo(this);
+            return this;
+        }
+
+    })
+
+
+    //事件模块
+    Meatchell.fn.extend({
+        on:function( type, fn ){
+            if(!this.events[type]){
+                this.events[type] = [];
+                var that = this;
+                this.each(function(){ //each 中的 this 是DOM 对象  //循环是为了个每个DOM对象都添加事件
+                    var f = function(e){  // 事件触发后 执行
+                        for(var i = 0; i< that.events[type].length; i++){
+                            that.events[type][i].call(this,e);
+                        }
+                    };
+                    if(this.addEventListener){
+                        this.addEventListener( type, f);
+                    }else{
+                        this.attachEvent('on'+type,f);
+                    }
+                })
+
+            }
+
+            this.events[type].push(fn)
+            return this;
+        },
+        off:function(type,fn){
+            var arr = this.events[type];
+            if(arr){
+                for(var i = 0; i<this.events[type].length; i++){
+                    if(arr[i] == fn){
+                        arr.splice(i,1);  //删除元素
+                    }
+                }
+            }
+            return this;
+        }
+
+    })
+    Meatchell.each( ( "blur focus focusin focusout load resize scroll unload click dblclick " +
+        "mousedown mouseup mousemove mouseover mouseout mouseenter mouseleave " +
+        "change select submit keydown keypress keyup error contextmenu").split( ' '),function(i,v){
+        Meatchell.fn[v] = function(fn){
+            this.on(v,fn)
+            return this;
+        }
+
+    } )
+    Meatchell.fn.extend({
+        hover:function(fn1,fn2){
+            return this.mouseover(fn1)
+                   this.mouseout(fn2)
+        },
+        toggle:function(){
+            var i = 0;
+            var arg = arguments;
+            this.on('click',function(e){
+               arg[i % arg.length].call(this,e);
+                i++
+            })
+            return this;
+        }
+    })
+
+
+    //样式模块
+    Meatchell.fn.extend({
+        css:function(option){
+            var len = arguments.length;
+            var args = arguments;
+            if(len === 1){
+                if(Meatchell.isObject(option)){
+                   return this.each(function() {
+                        for(var k in option){
+                            this.style[k] = option[k];
+                        }
+                    })
+                }
+                if(Meatchell.isString(option)){
+                    return Meatchell.getStyle(this[0],option)
+                }
+            }
+            if(len === 2){
+                if( Meatchell.isString(args[0]) && Meatchell.isString(args[1])){
+                    return this.each(function(){
+                        this.style[args[0]] = args[1];
+                    })
+                }
+            }
+
+        },
+        addClass:function(name){
+            return this.each(function(){
+                if(this.className){
+                    if((' '+ this.className+' ').indexOf(' '+name+' ') == -1){
+                        this.className += ' '+name;
+                    }
+                }else{
+                    this.className = name;
+                }
+            })
+        },
+        removeClass:function(name){
+            return this.each(function(){
+                var arr = this.className.split(' ');
+                for(var i=arr.length; i>=0; i--){
+                    if(arr[i] === name){
+                        arr.splice(i,1);
+                    }
+                }
+                this.className = arr.join(' ');
+            })
+        },
+        hasClass:function(name){
+            for(var i = 0; i<this.length; i++){
+                if((' '+this[i].className+' ').indexOf(' '+name+' ') != -1){
+                    return true;
+                }
+            }
+            return false;
+        },
+        toggleClass:function(name){
+             if(this.hasClass(name)){
+                 this.addClass(name);
+             }else{
+                 this.removeClass(name);
+             }
+        }
+    });
+    //属性模块
+    Meatchell.fn.extend({
+       attr:function(name, value){
+           var len = arguments.length;
+           if(len === 2){
+               if(Meatchell.isString(name) && Meatchell.isString(value)){
+                   this.each(function(){
+                       this.setAttribute(name,value);
+
+                   })
+               }
+           }
+           if(len === 1){
+              return this[0].getAttribute(name);
+           }
+           return this;
+       },
+       prop:function(){
+           var len = arguments.length;
+           if(len === 2){
+                   this.each(function(){
+                       this[name] = value;
+
+                   })
+           }
+           if(len === 1){
+               return this[0][name];
+           }
+           return this;
+       },
+        val:function(value){
+            if(value === undefined){
+                return this.attr(value);
+            }else{
+                return this.attr('value',value);
+            }
+        },
+        html:function(html){
+            if(html === undefined){
+                return this.attr('innerHTML');
+            }else{
+                 this.attr('innerHTML',html);
+                return this;
+            }
+        },
+        text:function(txt){
+            if(arguments.length === 1){
+                this.each(function(){
+                    this.innerHTML = txt;
+                })
+                return this;
+            }else{
+                var list = [];
+                var arr = getTxt(this[0],list);
+                return arr.join(' ')
+            }
+
+            function getTxt(node,list){
+                var arr = node.childNodes
+                for(var i =0; i<arr.length; i++){
+                    if(node.nodeType === 3){
+                        list.push(arr[i].nodeValue)
+                    }
+                    if(node.nodeType === 1){
+                        getTxt(arr[i],list);
+                    }
+                }
+             return list;
+            }
+        }
+    });
+
+    //动画模块
+    Meatchell.fn.extend({
+        animate:function(propertys,duration,easing,fn) {
+            var iObj = this;
+            this.each(function(){
+                myAnimate(this,propertys,duration,easing,fn);
+            })
+            function myAnimate(node,propertys,duration,easing,fn) {
+                var start = {};
+                Meatchell.each(propertys, function (v, i) {
+                    start[v] = parseInt(Meatchell.getStyle(node, v));
+                })
+
+                var startTime = +new Date();
+                //3.编写定时器
+                iObj.intervalId = setInterval(function () {
+                    //4.得到当前时间并计算出时间差（deltaTime）
+                    var deltaTime = ( +new Date() ) - startTime;
+                    //5.比较一下时间有没有超过总时间
+                    if (deltaTime >= duration) {	//停止计时器
+                        clearInterval(iObj.intervalId);
+                        deltaTime = duration;
+                    }
+                    //通过循环设置多个属性并实现缓动效果
+                    for (var k in start) {
+                        var X = parseInt(propertys[k]);
+                        var startX = start[k];
+                        node.style[k] = startX +
+                            Meatchell.g(deltaTime, startX, X, duration, easing) + "px";
+                        //t, b, c, d, // t: current time, b: beginning value, c: change in value, d: duration
+                    }
+                    //如果deltaTime和总时间一致，那么就是动画完毕了，执行回调函数fn
+                    if (deltaTime == duration && fn) {
+                        fn.call(node);
+                    }
+
+                }, 20);
+            }
+        },
+        intervalId:null,
+        stop:function(){
+            clearInterval(this.intervalId);
+            intervalId = null;
+        }
+    })
+
+
+
+    var select = (function () {
+        //变量声明
+        var i, j, selects, subSelects, node, temp, list, arr, res, m, tempArr;
+
+        var rnative = /\{\s*\[native/;
+        var rtrim = /^\s+|\s$/g;
+        var rbasicselector = /^(?:\#([\w\-]+)|\.([\w\-]+)|(\*|\w+))$/;
+
+        //方法检测
+        var support = {};
+        support.qsa = rnative.test(document.querySelectorAll + '');
+        support.getElementsByClassName = rnative.test(document.getElementsByClassName + '');
+        support.trim = rnative.test(String.prototype.trim + '');
+        support.indexOf = rnative.test(Array.prototype.indexOf + ' ');
+
+        //功能函数 getByClass  兼容IE 678;
+        function getByClass(className, node) {
+            node = node || document;
+            res = [];
+            if (support.getElementsByClassName) {
+                list = node.getElementsByClassName(className);
+                push.apply(res, list)
+            } else {
+                list = node.getElementsByTagName('*');
+                for (i = 0; i < list.length; i++) {
+                    if ((' ' + list[i].className + ' ').indexOf(' ' + className + ' ') != -1) {
+                        res.push(list[i]);
+                    }
+                }
+                return res;
+            }
+        }
+
+        //功能函数 myIndexOf 用于数组去重功能函数;
+        function myIndexOf(array, search, searchIndex) {
+            searchIndex = searchIndex || 0;
+            if (support.indexOf) {
+                return array.indexOf(search, searchIndex);
+            } else {
+                for (i = searchIndex; i < arr; i++) {
+                    if (array[i] == search) {
+                        return i;
+                    }
+                }
+                return -1;
+            }
+        }
+
+        // 功能函数 去重;
+        function unique(array) {
+            tempArr = [];
+            for (i = 0; i < array.length; i++) {
+                if (myIndexOf(tempArr, array[i]) === -1) {
+                    tempArr.push(array[i])
+                }
+            }
+            return tempArr;
+        }
+
+        //功能函数 字符前后去重空格
+        function myTrim(str) {
+            if (support.trim) {
+                return str.trim();
+            } else {
+                return str.replace(rtrim, '');
+            }
+        }
+
+        //基本选择器
+        function basicSelect(selector, node) {
+            node = node || document;
+            res = [];
+            if (m = rbasicselector.exec(selector)) {
+                if (m[1] && (temp = node.getElementById(m[1]))) {
+                    res.push(temp);
+                } else if (m[2]) {
+                    res.push.apply(res, getByClass(m[2], node));  //传入HTMLCollection  res 加不进去
+                    // list = getByClass(m[2],node);
+                    // res.push.apply(res,list);
+                } else if (m[3]) {
+                    res.push.apply(res, node.getElementsByTagName(m[3]))
+                }
+            }
+            return res;
+        }
+
+        //后代选择器
+        function select2(selector, result) {
+            result = result || [], arr = [];
+            node = [document];
+            selects = selector.split(' ');
+            for (i = 0; i < selects.length; i++) {
+                for (j = 0; j < node.length; j++) {
+                    push.apply(arr, baseselect(selects[i], node[j]));
+                }
+                node = arr;
+                arr = [];
+            }
+            push.apply(result, node);
+            return result;
+        }
+
+        //选择器核心;
+        function select(selector, result) {
+            result = result || [];
+            if (typeof selector != 'string') return false;
+            if (support.qsa) {
+                push.apply(result, document.querySelectorAll(selector));
+            } else {
+                selects = selector.split(',');
+                for (i = 0; i < selects.length; i++) {
+                    subSelects = myTrim(selects[i]);
+                    if (subSelects.test(rbasicselector)) {
+                        push.apply(result, basicSelect(subSelects))
+                    } else {
+                        select2(subSelects, result);
+                    }
+                }
+            }
+            return unique(result);
+        }
+
+        return select;
+    })();
+    Meatchell.select = select;      //用于在需要的时候  使用第三方插件
+    window.M = window.Meatchell = Meatchell
+
+
+})(window)
